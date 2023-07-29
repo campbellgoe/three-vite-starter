@@ -19,21 +19,34 @@ document.body.appendChild( renderer.domElement );
 
 camera.position.z = 250;
 
-const ambientLight = new THREE.AmbientLight( 0x101010 ); // soft white ambientLight
+const ambientLight = new THREE.AmbientLight( 0x606060 ); // soft white ambientLight
 scene.add( ambientLight );
 
-const pointLight = new THREE.PointLight( 0xffffff, 100000, 10000 );
-pointLight.position.set( 200, 200, 200 );
-scene.add( pointLight );
+const directionalLight = new THREE.DirectionalLight( 0xffffff, 10 );
+directionalLight.position.set(500,500,500)
+scene.add( directionalLight );
 
 function initGlobe(){
 	myGlobe = new ThreeGlobe({
 		waitForGlobeReady: true,
 		animateIn: true
 	})
-		.globeImageUrl('/earth-2002.png')
-		.pointsData(earth.features);
+	.globeImageUrl('/earth-blue-marble.jpg')
+	.bumpImageUrl('/earth-topology.png')
+  // .hexPolygonsData(earth.features)
+  // .hexPolygonResolution(4)
+	// .hexPolygonMargin(0.5)
+	.showAtmosphere(true)
+	.atmosphereColor("#4eddf1")
+	.atmosphereAltitude(0.15)
 
+	const globeMaterial = myGlobe.globeMaterial();
+    globeMaterial.bumpScale = 10;
+    new THREE.TextureLoader().load('/earth-water.png', texture => {
+      globeMaterial.specularMap = texture;
+      globeMaterial.specular = new THREE.Color('grey');
+      globeMaterial.shininess = 15;
+    });
 
 	scene.add(myGlobe);
 }
@@ -53,11 +66,12 @@ function onResize(){
 	windowHalfY = height / 2
 	renderer.setSize(width, height)
 }
-
+let rotation = 0.001
 function animate() {
 	requestAnimationFrame( animate );
-	camera.position.x += (Math.abs(mouseX) <= windowHalfX /2) ? (mouseX / 2 - camera.position.x)*0.005 : 0;
-	camera.lookAt(scene.position)
+	myGlobe.rotateY(rotation)
+	
+	controls.update()
 	renderer.render( scene, camera );
 }
 
