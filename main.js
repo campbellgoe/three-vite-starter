@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import ThreeGlobe from 'three-globe';
 import earth from './earth.geo.json'
 
+
 let mouseX = 0
 let mouseY = 0
 let windowHalfX = window.innerWidth / 2
@@ -26,7 +27,7 @@ const directionalLight = new THREE.DirectionalLight( 0xffffff, 10 );
 directionalLight.position.set(500,500,500)
 scene.add( directionalLight );
 
-function initGlobe(){
+function initGlobe(loadingManager){
 	myGlobe = new ThreeGlobe({
 		waitForGlobeReady: true,
 		animateIn: true
@@ -39,6 +40,9 @@ function initGlobe(){
 	.showAtmosphere(true)
 	.atmosphereColor("#4eddf1")
 	.atmosphereAltitude(0.15)
+	.onGlobeReady(() => {
+		loadingManager.onLoad()
+	})
 
 	const globeMaterial = myGlobe.globeMaterial();
     globeMaterial.bumpScale = 10;
@@ -89,7 +93,22 @@ controls.maxPolarAngle = Math.PI - Math.PI/6
 
 window.addEventListener("resize", onResize, false)
 document.addEventListener("mousemove", onMouseMove)
-initGlobe()
-onResize()
 
+onResize()
+function onTransitionEnd( event ) {
+
+	event.target.remove();
+	
+}
+const loadingManager = new THREE.LoadingManager( () => {
+	
+	const loadingScreen = document.getElementById( 'loading-screen' );
+	loadingScreen.classList.add( 'fade-out' );
+	
+	// optional: remove loader from DOM via event listener
+	loadingScreen.addEventListener( 'transitionend', onTransitionEnd );
+	
+} );
+
+initGlobe(loadingManager)
 animate();
