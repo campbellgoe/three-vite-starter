@@ -32,7 +32,7 @@ function initGlobe(loadingManager){
 		waitForGlobeReady: true,
 		animateIn: true
 	})
-	.globeImageUrl('/earth-blue-marble.jpg')
+	.globeImageUrl('/earth-blue-marble-edited.jpg')
 	.bumpImageUrl('/earth-topology.png')
   // .hexPolygonsData(earth.features)
   // .hexPolygonResolution(4)
