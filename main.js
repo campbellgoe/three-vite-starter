@@ -23,7 +23,7 @@ camera.position.z = 250;
 const ambientLight = new THREE.AmbientLight( 0x606060 ); // soft white ambientLight
 scene.add( ambientLight );
 
-const directionalLight = new THREE.DirectionalLight( 0xffffff, 6 );
+const directionalLight = new THREE.DirectionalLight( 0xffcccaa, 25 );
 directionalLight.position.set(500,500,500)
 scene.add( directionalLight );
 
@@ -32,7 +32,7 @@ function initGlobe(loadingManager){
 		waitForGlobeReady: true,
 		animateIn: true
 	})
-	.globeImageUrl('/earth-blue-marble-edited.jpg')
+	.globeImageUrl('/8k_earth_daymap.jpg')
 	// .bumpImageUrl('/earth-topology.png')
   // .hexPolygonsData(earth.features)
   // .hexPolygonResolution(4)
