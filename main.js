@@ -23,7 +23,7 @@ camera.position.z = 250;
 const ambientLight = new THREE.AmbientLight( 0x606060 ); // soft white ambientLight
 scene.add( ambientLight );
 
-const directionalLight = new THREE.DirectionalLight( 0xffcccaa, 25 );
+const directionalLight = new THREE.DirectionalLight( 0xffcccaa, 15 );
 directionalLight.position.set(500,500,500)
 scene.add( directionalLight );
 
@@ -44,13 +44,13 @@ function initGlobe(loadingManager){
 		loadingManager.onLoad()
 	})
 
-	// const globeMaterial = myGlobe.globeMaterial();
-  //   globeMaterial.bumpScale = 10;
-  //   new THREE.TextureLoader().load('/earth-water.png', texture => {
-  //     globeMaterial.specularMap = texture;
-  //     globeMaterial.specular = new THREE.Color('grey');
-  //     globeMaterial.shininess = 15;
-  //   });
+	const globeMaterial = myGlobe.globeMaterial();
+    globeMaterial.bumpScale = 10;
+    new THREE.TextureLoader().load('/EarthSpec.png', texture => {
+      globeMaterial.specularMap = texture;
+      globeMaterial.specular = new THREE.Color('grey');
+      globeMaterial.shininess = 15;
+    });
 
 	scene.add(myGlobe);
 }
