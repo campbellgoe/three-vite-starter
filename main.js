@@ -12,8 +12,17 @@ const geometry = new THREE.BoxGeometry( 1, 1, 1 );
 const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
 const cube = new THREE.Mesh( geometry, material );
 scene.add( cube );
+const pointLight = new THREE.PointLight(0xffffff, 1, 100)
+scene.add(pointLight)
+const planeGeom = new THREE.PlaneGeometry(10, 10)
+const planeMat = new THREE.MeshBasicMaterial({
+ color: 0xff0000
+})
+const plane = new THREE.Mesh(planeGeom, planeMat)
+plane.rotation.x = -Math.PI/2
+scene.add(plane)
 
-camera.position.z = 5;
+camera.position.z = 1;
 const controls = new MapControls( camera, renderer.domElement );
 controls.enableDamping = true;
 function animate() {
@@ -26,3 +35,4 @@ controls.update()
 }
 
 animate();
+window.onerror = err => document.write(err)
