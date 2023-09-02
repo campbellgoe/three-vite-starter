@@ -1,69 +1,46 @@
 import * as THREE from 'three';
-import { MapControls } from 'three/addons/controls/MapControls.js';
+import { MapControls } from 'three/examples/jsm/controls/MapControls';
 
+// Create a scene
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize( window.innerWidth, window.innerHeight );
-document.body.appendChild( renderer.domElement );
+// Set up the camera
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.y = 5;
+camera.position.z = 5;
 
-const geometry = new THREE.BoxGeometry( 1, 1, 1 );
-const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-const cube = new THREE.Mesh( geometry, material );
-scene.add( cube );
-const hemLight = new THREE.HemisphereLight( 0xffffbb, 0x080820, 1 );
-scene.add( hemLight );
-const pointLight = new THREE.PointLight(0xffffff, 25, 100)
-pointLight.position.set(0, 2, 0)
-scene.add(pointLight)
-const planeGeom = new THREE.PlaneGeometry(10, 10)
-const planeTex = new THREE.TextureLoader().load('seamless_grass_sticks_clovers_2048.jpg')
+// Set up the renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-const planeMat = new THREE.MeshStandardMaterial({
- map: planeTex
-})
-const plane = new THREE.Mesh(planeGeom, planeMat)
-plane.rotation.x = -Math.PI/2
-scene.add(plane)
+// Add a ground plane
+const groundGeometry = new THREE.PlaneGeometry(10, 10, 32);
+const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+ground.rotation.x = Math.PI / 2;
+scene.add(ground);
 
-camera.position.z = 1;
-const controls = new MapControls( camera, renderer.domElement );
+// Add map controls
+const controls = new MapControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.dampingFactor = 0.25;
+controls.screenSpacePanning = false;
 
-const size = 10
-// Create a plane geometry
-const planeGeometry = new THREE.PlaneGeometry(size, size); // Customize the width and height of the plane as needed
-
-// Create a material for the plane
-const planeMaterial = new THREE.MeshStandardMaterial({ map: planeTex }); // Customize the color or use a different material as needed
-const gridRowCount = 5; // Number of rows in the grid
-const gridColumnCount = 5; // Number of columns in the grid
-const gridSpacing = size; // Spacing between each instance in the grid
-// Create the InstancedMesh
-const instanceCount = gridRowCount * gridColumnCount; // The number of instances you want to create
-const instancedMesh = new THREE.InstancedMesh(planeGeometry, planeMaterial, instanceCount);
-instancedMesh.rotation.x = -Math.PI/2
-// Optional: You can now modify the position, rotation, or scale of each instance.
-
-const matrix = new THREE.Matrix4();
-for (let row = 0; row < gridRowCount; row++) {
-  for (let col = 0; col < gridColumnCount; col++) {
-    matrix.setPosition(col * gridSpacing, row * gridSpacing, 0); // Set the position of each instance in the grid
-    instancedMesh.setMatrixAt(row * gridColumnCount + col, matrix);
-  }
-}
-
-scene.add(instancedMesh);
-
+// Render the scene
 function animate() {
-	requestAnimationFrame( animate );
-controls.update()
-	cube.rotation.x += 0.01;
-	cube.rotation.y += 0.01;
-
-	renderer.render( scene, camera );
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
 }
+
+// Handle window resize
+window.addEventListener('resize', () => {
+    const newWidth = window.innerWidth;
+    const newHeight = window.innerHeight;
+    camera.aspect = newWidth / newHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(newWidth, newHeight);
+});
 
 animate();
-window.onerror = err => document.write(err)
