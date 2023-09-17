@@ -1,205 +1,135 @@
 import * as THREE from 'three';
-import { MapControls } from 'three/addons/controls/MapControls.js';
-
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import * as CANNON from 'cannon-es';
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 10, 20);
+
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Constants
-const SPHERE_HEALTH = 100;
-const DAMAGE_PER_SHOT = 25;
+const world = new CANNON.World();
+world.gravity.set(0, -9.82, 0);
 
-class Tile {
-    size = 1;
-    mesh;
+// Lighting
+const ambientLight = new THREE.AmbientLight(0x404040, 1);
+scene.add(ambientLight);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+directionalLight.position.set(5, 5, 5).normalize();
+scene.add(directionalLight);
 
-    constructor(x, y, color) {
-        const geometry = new THREE.PlaneGeometry(this.size, this.size);
-        const material = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
-        this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.position.set(x, 0, y);
-        this.mesh.rotateX(-Math.PI / 2);
-        scene.add(this.mesh);
-    }
+// Ground
+const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
+const groundGeometry = new THREE.PlaneGeometry(500, 500);
+const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+groundMesh.rotation.x = -Math.PI / 2;
+scene.add(groundMesh);
+
+const gridHelper = new THREE.GridHelper(200, 40);
+    scene.add(gridHelper);
+
+const groundShape = new CANNON.Plane();
+const groundBody = new CANNON.Body({ mass: 0 });
+groundBody.addShape(groundShape);
+groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+world.addBody(groundBody);
+
+// Car
+const carMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+const carGeometry = new THREE.BoxGeometry(2, 1, 5);
+const carMesh = new THREE.Mesh(carGeometry, carMaterial);
+scene.add(carMesh);
+
+const carShape = new CANNON.Box(new CANNON.Vec3(1, 0.5, 2.5));
+const carBody = new CANNON.Body({ mass: 1500 });
+carBody.addShape(carShape);
+carBody.position.set(0, 1, 0);
+world.addBody(carBody);
+
+const wheelPositions = [
+    [-1, -0.5, -2],
+    [1, -0.5, -2],
+    [-1, -0.5, 2],
+    [1, -0.5, 2],
+];
+
+const wheelMeshes = [];
+const wheelBodies = [];
+const wheelJoints = [];
+
+const wheelRadius = 0.5;
+const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
+const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, 0.4, 32);
+
+wheelPositions.forEach((pos, index) => {
+    const mesh = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    mesh.rotation.z = Math.PI / 2;
+    scene.add(mesh);
+    wheelMeshes.push(mesh);
+
+    const shape = new CANNON.Cylinder(wheelRadius, wheelRadius, 0.4, 20);
+    const body = new CANNON.Body({ mass: 100 });
+    body.addShape(shape);
+    body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    body.position.set(pos[0], pos[1], pos[2]);
+    world.addBody(body);
+    wheelBodies.push(body);
+
+    const joint = new CANNON.HingeConstraint(carBody, body, {
+        pivotA: new CANNON.Vec3(pos[0], pos[1], pos[2]),
+        axisA: new CANNON.Vec3(1 ,0, 0),
+        pivotB: new CANNON.Vec3(0, 0, 0),
+        axisB: new CANNON.Vec3(0, 1,0),
+        collideConnected: false,
+    });
+    world.addConstraint(joint);
+    wheelJoints.push(joint);
+});
+
+function updatePhysics() {
+    world.step(1 / 60);
+    carMesh.position.copy(carBody.position);
+    carMesh.quaternion.copy(carBody.quaternion);
+    wheelMeshes.forEach((mesh, index) => {
+        mesh.position.copy(wheelBodies[index].position);
+        mesh.quaternion.copy(wheelBodies[index].quaternion);
+    });
 }
 
-class HealthBar {
-    background;
-    healthBar;
-
-    constructor() {
-        const bgGeometry = new THREE.PlaneGeometry(1, 0.1);
-        const healthGeometry = new THREE.PlaneGeometry(1, 0.1);
-        const bgMaterial = new THREE.MeshBasicMaterial({ color: 'gray' });
-        this.background = new THREE.Mesh(bgGeometry, bgMaterial);
-
-        const healthMaterial = new THREE.MeshBasicMaterial({ color: 'green' });
-        this.healthBar = new THREE.Mesh(healthGeometry, healthMaterial);
-
-        this.background.add(this.healthBar);
+document.addEventListener('keydown', (event) => {
+    const forceMagnitude = 10000; // Increase the force magnitude to a higher value
+    if (event.code === 'ArrowUp') {
+        wheelBodies.forEach(body => {
+            body.applyLocalForce(new CANNON.Vec3(forceMagnitude, 0, 0), new CANNON.Vec3(0, 0, -1));
+        });
     }
-
-    setHealth(percentage) {
-        this.healthBar.scale.x = percentage;
-        this.healthBar.position.x = -(1 - percentage) / 2;
-    }
-}
-
-class Unit {
-    mesh;
-    type;
-    isEnemy = false;
-    health = SPHERE_HEALTH;
-    healthBar;
-    lastShootTime = 0;
-
-    constructor(x, y, type, color) {
-        let geometry;
-
-        switch (type) {
-            case "sphere":
-                geometry = new THREE.SphereGeometry(0.4, 32, 32);
-                this.isEnemy = true;
-                this.healthBar = new HealthBar();
-                this.healthBar.background.position.y = 1;
-                break;
-            case "box":
-                geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-                break;
-            case "pyramid":
-                geometry = new THREE.ConeGeometry(0.4, 0.8, 4);
-                break;
-            // ... other geometries ...
-
-            default:
-                geometry = new THREE.SphereGeometry(0.4, 32, 32);
-                break;
-        }
-
-        const material = new THREE.MeshBasicMaterial({ color: color });
-        this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.position.set(x, 0.4, y);
-        this.type = type;
-        scene.add(this.mesh);
-        if (this.healthBar) {
-            this.mesh.add(this.healthBar.background);
-        }
-    }
-
-    takeDamage(amount) {
-        if (this.type !== 'sphere') return;
-        this.health -= amount;
-        if (this.health <= 0) {
-            scene.remove(this.mesh);
-            units = units.filter(unit => unit !== this);
-        } else {
-            this.healthBar.setHealth(this.health / SPHERE_HEALTH);
-        }
-    }
-
-    shoot(target) {
-        if (this.type !== 'pyramid') return;
-        if (!target || !target.mesh) return;
-
-        const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-        const start = this.mesh.position.clone();
-        const end = target.mesh.position.clone();
-        const geometry = new THREE.BufferGeometry().setFromPoints([start, start]);
-
-        const line = new THREE.Line(geometry, material);
-        scene.add(line);
-
-        let progress = 0;
-        const animateShot = () => {
-            if (progress >= 1) {
-                target.takeDamage(DAMAGE_PER_SHOT);
-                scene.remove(line);
-            } else {
-                const currentPoint = new THREE.Vector3().lerpVectors(start, end, progress);
-                line.geometry.setFromPoints([start, currentPoint]);
-                line.geometry.verticesNeedUpdate = true;
-                progress += 0.05;
-                requestAnimationFrame(animateShot);
-            }
-        };
-        animateShot();
-    }
-
-    canShoot() {
-        if (this.type !== 'pyramid') return false;
-        const currentTime = Date.now();
-        if (currentTime - this.lastShootTime > 2000) {
-            this.lastShootTime = currentTime;
-            return true;
-        }
-        return false;
-    }
-}
-
-// Game Initialization
-
-let tiles = [];
-let units = [];
-
-for (let x = 0; x < 10; x++) {
-    for (let y = 0; y < 10; y++) {
-        tiles.push(new Tile(x, y, (x + y) % 2 === 0 ? 'lightgray' : 'darkgray'));
-    }
-}
-
-renderer.domElement.addEventListener('click', (event) => {
-    const mouse = new THREE.Vector2(
-        (event.clientX / window.innerWidth) * 2 - 1,
-        -(event.clientY / window.innerHeight) * 2 + 1
-    );
-
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, camera);
-
-    const intersects = raycaster.intersectObjects(scene.children);
-
-    if (intersects.length) {
-        const intersect = intersects[0];
-        const x = Math.round(intersect.point.x);
-        const y = Math.round(intersect.point.z);
-        const unitType = document.getElementById('unitSelector').value;
-        units.push(new Unit(x, y, unitType, Math.random() * 0xffffff));
+    else if (event.code === 'ArrowDown') {
+        wheelBodies.forEach(body => {
+            body.applyLocalForce(new CANNON.Vec3(-forceMagnitude, 0, 0), new CANNON.Vec3(0, 0, -1));
+        });
     }
 });
 
-camera.position.set(5, 15, 15);
-camera.lookAt(5, 0, 5);
+document.addEventListener('keyup', (event) => {
+    if (['ArrowUp', 'ArrowDown'].includes(event.code)) {
+        wheelBodies.forEach(body => {
+            // Don't set velocity to zero to allow the car to come to a stop naturally
+        });
+    }
+});
 
-const controls = new MapControls(camera, renderer.domElement);
-controls.enableDamping = true;
+function animate() {
+    requestAnimationFrame(animate);
+    updatePhysics();
 
-const animate = () => {
-	requestAnimationFrame(animate);
+    // Make the camera follow the car
+    camera.position.x = carBody.position.x;
+    camera.position.y = carBody.position.y + 10;
+    camera.position.z = carBody.position.z + 20;
+    camera.lookAt(carBody.position.x, carBody.position.y, carBody.position.z);
 
-	for (let unit of units) {
-			if (unit.type === 'pyramid' && unit.canShoot()) {
-					let nearestEnemy = null;
-					let nearestDistance = Infinity;
-					for (let potentialEnemy of units) {
-							if (potentialEnemy.isEnemy) {
-									const distance = unit.mesh.position.distanceTo(potentialEnemy.mesh.position);
-									if (distance < nearestDistance) {
-											nearestDistance = distance;
-											nearestEnemy = potentialEnemy;
-									}
-							}
-					}
-
-					if (nearestEnemy) {
-							unit.shoot(nearestEnemy);
-					}
-			}
-	}
-
-	controls.update();
-	renderer.render(scene, camera);
-};
+    renderer.render(scene, camera);
+}
 
 animate();
