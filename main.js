@@ -42,7 +42,7 @@ const carMesh = new THREE.Mesh(carGeometry, carMaterial);
 scene.add(carMesh);
 
 const carShape = new CANNON.Box(new CANNON.Vec3(1, 0.5, 2.5));
-const carBody = new CANNON.Body({ mass: 1500 });
+const carBody = new CANNON.Body({ mass: 4000 });
 carBody.addShape(carShape);
 carBody.position.set(0, 1, 0);
 world.addBody(carBody);
@@ -69,7 +69,7 @@ wheelPositions.forEach((pos, index) => {
     wheelMeshes.push(mesh);
 
     const shape = new CANNON.Cylinder(wheelRadius, wheelRadius, 0.4, 20);
-    const body = new CANNON.Body({ mass: 100 });
+    const body = new CANNON.Body({ mass: 1500 });
     body.addShape(shape);
     body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
     body.position.set(pos[0], pos[1], pos[2]);
@@ -82,13 +82,14 @@ wheelPositions.forEach((pos, index) => {
         pivotB: new CANNON.Vec3(0, 0, 0),
         axisB: new CANNON.Vec3(0, 1,0),
         collideConnected: false,
+        maxForce: 1e6
     });
     world.addConstraint(joint);
     wheelJoints.push(joint);
 });
 
 function updatePhysics() {
-    world.step(1 / 60);
+    world.step(1 / 60, 1 / 60, 10);
     carMesh.position.copy(carBody.position);
     carMesh.quaternion.copy(carBody.quaternion);
     wheelMeshes.forEach((mesh, index) => {
@@ -98,16 +99,25 @@ function updatePhysics() {
 }
 
 document.addEventListener('keydown', (event) => {
-    const forceMagnitude = 10000; // Increase the force magnitude to a higher value
+    const forceMagnitude = 40000; // Increase the force magnitude to a higher value
+    const steeringMagnitude = 30; // You might need to tweak this value
     if (event.code === 'ArrowUp') {
         wheelBodies.forEach(body => {
-            body.applyLocalForce(new CANNON.Vec3(forceMagnitude, 0, 0), new CANNON.Vec3(0, 0, -1));
+            body.applyLocalForce(new CANNON.Vec3(-forceMagnitude, 0, 0), new CANNON.Vec3(0, 0, -1));
         });
     }
     else if (event.code === 'ArrowDown') {
         wheelBodies.forEach(body => {
-            body.applyLocalForce(new CANNON.Vec3(-forceMagnitude, 0, 0), new CANNON.Vec3(0, 0, -1));
+            body.applyLocalForce(new CANNON.Vec3(forceMagnitude, 0, 0), new CANNON.Vec3(0, 0, -1));
         });
+    }
+    else if (event.code === 'ArrowLeft') {
+        wheelBodies[0].angularVelocity.y += steeringMagnitude;
+        wheelBodies[1].angularVelocity.y += steeringMagnitude;
+    }
+    else if (event.code === 'ArrowRight') {
+        wheelBodies[0].angularVelocity.y -= steeringMagnitude;
+        wheelBodies[1].angularVelocity.y -= steeringMagnitude;
     }
 });
 
@@ -116,6 +126,10 @@ document.addEventListener('keyup', (event) => {
         wheelBodies.forEach(body => {
             // Don't set velocity to zero to allow the car to come to a stop naturally
         });
+    }
+    if (['ArrowLeft', 'ArrowRight'].includes(event.code)) {
+        wheelBodies[0].angularVelocity.y = 0;
+        wheelBodies[1].angularVelocity.y = 0;
     }
 });
 
